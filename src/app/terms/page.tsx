@@ -7,7 +7,7 @@ export default function TermsPage() {
         <div className="prose prose-gray max-w-none text-sm leading-relaxed space-y-6">
           <section>
             <h2 className="text-lg font-bold text-gray-800 mb-2">제1조 목적</h2>
-            <p className="text-gray-600">이 약관은 JobWrite(이하 "서비스")가 제공하는 AI 자기소개서 작성 서비스의 이용 조건 및 절차에 관한 사항을 규정합니다.</p>
+            <p className="text-gray-600">이 약관은 JobWrite(이하 &quot;서비스&quot;)가 제공하는 AI 자기소개서 작성 서비스의 이용 조건 및 절차에 관한 사항을 규정합니다.</p>
           </section>
           <section>
             <h2 className="text-lg font-bold text-gray-800 mb-2">제2조 서비스 이용</h2>
