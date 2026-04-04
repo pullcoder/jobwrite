@@ -5,7 +5,8 @@
       "Bash(npm run:*)",
       "Bash(gh repo:*)",
       "Bash(git credential-manager:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "WebFetch(domain:jobwrite.pages.dev)"
     ]
   }
 }
