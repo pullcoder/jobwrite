@@ -1,9 +1,6 @@
 export const runtime = "edge";
 
 import { NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
   const { company, position, experience, strength, category, charLimit } = await req.json();
@@ -31,21 +28,49 @@ export async function POST(req: NextRequest) {
 
 [${category}] 자기소개서를 지금 작성해 주세요:`;
 
-  const stream = await client.messages.stream({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2048,
-    messages: [{ role: "user", content: prompt }],
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 2048,
+      stream: true,
+      messages: [{ role: "user", content: prompt }],
+    }),
   });
+
+  if (!response.ok) {
+    return new Response("AI 생성 중 오류가 발생했습니다.", { status: 500 });
+  }
 
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     async start(controller) {
-      for await (const chunk of stream) {
-        if (
-          chunk.type === "content_block_delta" &&
-          chunk.delta.type === "text_delta"
-        ) {
-          controller.enqueue(encoder.encode(chunk.delta.text));
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n").filter((line) => line.startsWith("data: "));
+
+        for (const line of lines) {
+          const data = line.slice(6);
+          if (data === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+              controller.enqueue(encoder.encode(parsed.delta.text));
+            }
+          } catch {
+            // 파싱 오류 무시
+          }
         }
       }
       controller.close();
@@ -55,7 +80,6 @@ export async function POST(req: NextRequest) {
   return new Response(readable, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "Transfer-Encoding": "chunked",
     },
   });
 }

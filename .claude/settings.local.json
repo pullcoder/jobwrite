@@ -4,7 +4,8 @@
       "Bash(npm install:*)",
       "Bash(npm run:*)",
       "Bash(gh repo:*)",
-      "Bash(git credential-manager:*)"
+      "Bash(git credential-manager:*)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }
