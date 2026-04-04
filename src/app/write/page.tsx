@@ -1,18 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles, Copy, Download, RotateCcw, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Copy, Download, RotateCcw, ChevronRight, Save } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const CATEGORIES = ["성장과정", "지원동기", "직무역량", "입사 후 포부", "성격 장단점"];
-
-const FIELD_LABELS: Record<string, string> = {
-  company: "지원 회사명",
-  position: "지원 직무",
-  experience: "관련 경험 (인턴, 프로젝트, 동아리 등)",
-  strength: "본인의 강점 (키워드로 입력)",
-  category: "작성할 자소서 항목",
-  charLimit: "글자 수 제한",
-};
 
 type FormData = {
   company: string;
@@ -37,7 +29,17 @@ export default function WritePage() {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [step, setStep] = useState<"form" | "result">("form");
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id ?? null);
+    });
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -47,6 +49,7 @@ export default function WritePage() {
     e.preventDefault();
     setLoading(true);
     setResult("");
+    setSaved(false);
     setStep("result");
 
     try {
@@ -62,11 +65,28 @@ export default function WritePage() {
       const decoder = new TextDecoder();
       if (!reader) throw new Error("스트림 없음");
 
+      let fullText = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value);
-        setResult((prev) => prev + chunk);
+        fullText += chunk;
+        setResult(fullText);
+      }
+
+      // 로그인 상태면 자동 저장
+      if (userId) {
+        await supabase.from("documents").insert({
+          user_id: userId,
+          company: form.company,
+          position: form.position,
+          category: form.category,
+          experience: form.experience,
+          strength: form.strength,
+          char_limit: Number(form.charLimit),
+          content: fullText,
+        });
+        setSaved(true);
       }
     } catch {
       setResult("자소서 생성 중 오류가 발생했습니다. 다시 시도해 주세요.");
@@ -84,6 +104,7 @@ export default function WritePage() {
   const handleReset = () => {
     setStep("form");
     setResult("");
+    setSaved(false);
     setForm(INITIAL_FORM);
   };
 
@@ -100,7 +121,6 @@ export default function WritePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-3xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
             <Sparkles size={14} />
@@ -108,14 +128,18 @@ export default function WritePage() {
           </div>
           <h1 className="text-3xl font-black text-gray-900">자기소개서 작성</h1>
           <p className="text-gray-500 mt-2">정보를 입력하면 AI가 맞춤형 자소서를 작성합니다</p>
+          {!userId && (
+            <p className="text-xs text-amber-600 bg-amber-50 px-4 py-2 rounded-lg mt-3 inline-block">
+              로그인하면 생성된 자소서가 자동으로 저장됩니다
+            </p>
+          )}
         </div>
 
         {step === "form" ? (
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-6">
-            {/* 회사명 / 직무 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{FIELD_LABELS.company} *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">지원 회사명 *</label>
                 <input
                   name="company"
                   value={form.company}
@@ -126,7 +150,7 @@ export default function WritePage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{FIELD_LABELS.position} *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">지원 직무 *</label>
                 <input
                   name="position"
                   value={form.position}
@@ -138,23 +162,21 @@ export default function WritePage() {
               </div>
             </div>
 
-            {/* 경험 */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{FIELD_LABELS.experience} *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">관련 경험 *</label>
               <textarea
                 name="experience"
                 value={form.experience}
                 onChange={handleChange}
                 required
                 rows={4}
-                placeholder="예) React를 활용한 쇼핑몰 프로젝트 6개월, IT 스타트업 인턴 3개월, 학교 개발 동아리 활동 2년..."
+                placeholder="예) React를 활용한 쇼핑몰 프로젝트 6개월, IT 스타트업 인턴 3개월..."
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
               />
             </div>
 
-            {/* 강점 */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{FIELD_LABELS.strength}</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">본인의 강점</label>
               <input
                 name="strength"
                 value={form.strength}
@@ -164,10 +186,9 @@ export default function WritePage() {
               />
             </div>
 
-            {/* 항목 / 글자 수 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{FIELD_LABELS.category} *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">자소서 항목 *</label>
                 <select
                   name="category"
                   value={form.category}
@@ -180,7 +201,7 @@ export default function WritePage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{FIELD_LABELS.charLimit}</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">글자 수 제한</label>
                 <select
                   name="charLimit"
                   value={form.charLimit}
@@ -213,6 +234,12 @@ export default function WritePage() {
                 <p className="text-sm text-gray-400">{form.position}</p>
               </div>
               <div className="flex items-center gap-2">
+                {saved && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+                    <Save size={12} />
+                    저장됨
+                  </span>
+                )}
                 <button
                   onClick={handleReset}
                   className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
