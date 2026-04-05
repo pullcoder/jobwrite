@@ -29,15 +29,14 @@ ${content}
   "tip": "합격률을 높이는 핵심 조언 (50자 이내)"
 }`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01",
+      "Authorization": `Bearer ${process.env.GROQ_API_KEY!}`,
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
+      model: "llama-3.3-70b-versatile",
       max_tokens: 512,
       messages: [{ role: "user", content: prompt }],
     }),
@@ -48,7 +47,7 @@ ${content}
   }
 
   const data = await response.json();
-  const text = data.content?.[0]?.text ?? "";
+  const text = data.choices?.[0]?.message?.content ?? "";
 
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);

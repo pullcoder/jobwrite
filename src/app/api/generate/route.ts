@@ -75,15 +75,14 @@ export async function POST(req: NextRequest) {
 
 [${category}] 자기소개서를 지금 작성해 주세요:`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01",
+      "Authorization": `Bearer ${process.env.GROQ_API_KEY!}`,
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: "llama-3.3-70b-versatile",
       max_tokens: 2048,
       stream: true,
       messages: [{ role: "user", content: prompt }],
@@ -92,7 +91,7 @@ export async function POST(req: NextRequest) {
 
   if (!response.ok) {
     const errText = await response.text().catch(() => "");
-    console.error("Anthropic error:", response.status, errText);
+    console.error("Groq error:", response.status, errText);
     return new Response(
       JSON.stringify({ error: "ai_error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -117,9 +116,8 @@ export async function POST(req: NextRequest) {
           if (data === "[DONE]") continue;
           try {
             const parsed = JSON.parse(data);
-            if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
-              controller.enqueue(encoder.encode(parsed.delta.text));
-            }
+            const text = parsed.choices?.[0]?.delta?.content;
+            if (text) controller.enqueue(encoder.encode(text));
           } catch {
             // 파싱 오류 무시
           }
